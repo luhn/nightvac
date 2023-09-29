@@ -72,7 +72,7 @@ def _run(db, args):
     for namespace, name, dead in by_dead:
         logging.debug(f'    {namespace}.{name}: {dead}')
 
-    for namespace, name in by_freeze + by_dead:
+    for namespace, name, _ in by_freeze + by_dead:
         logging.info(f'Vacuuming {namespace}.{name}')
         db.execute(f'VACUUM "{namespace}"."{name}"')
         if unix_timestamp() > start + args.timeout:
