@@ -17,6 +17,9 @@ classifiers = [
 "Homepage" = "https://github.com/luhn/nightvac"
 "Bug Tracker" = "https://github.com/luhn/nightvac/issues"
 
+[project.scripts]
+nightvac = "nightvac:cli"
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
