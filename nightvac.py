@@ -27,6 +27,7 @@ JOIN pg_stat_all_tables stat ON pg_class.oid = stat.relid
 WHERE
 	pg_class.relkind = ANY(ARRAY['r', 't'])
 	AND stat.n_dead_tup > pg_class.reltuples * %(scale_factor)s + %(threshold)s
+    AND (stat.last_autovacuum IS NULL OR NOW() - stat.last_autovacuum > '1 hour'::INTERVAL)
 ORDER BY (stat.n_dead_tup - %(threshold)s) / nullif(pg_class.reltuples, 0) DESC NULLS LAST;
 """
 
