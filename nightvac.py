@@ -25,8 +25,8 @@ FROM pg_class
 JOIN pg_namespace ns ON pg_class.relnamespace = ns.oid
 JOIN pg_stat_all_tables stat ON pg_class.oid = stat.relid
 WHERE
-	pg_class.relkind = ANY(ARRAY['r', 't'])
-	AND stat.n_dead_tup > pg_class.reltuples * %(scale_factor)s + %(threshold)s
+    pg_class.relkind = ANY(ARRAY['r', 't'])
+    AND stat.n_dead_tup > pg_class.reltuples * %(scale_factor)s + %(threshold)s
     AND (stat.last_autovacuum IS NULL OR NOW() - stat.last_autovacuum > '1 hour'::INTERVAL)
 ORDER BY (stat.n_dead_tup - %(threshold)s) / nullif(pg_class.reltuples, 0) DESC NULLS LAST;
 """
@@ -40,7 +40,7 @@ SELECT
 FROM pg_class
 JOIN pg_namespace ns ON pg_class.relnamespace = ns.oid
 WHERE
-	pg_class.relkind = any(array['r', 't'])
+    pg_class.relkind = any(array['r', 't'])
     AND age(pg_class.relfrozenxid) > %(freeze_max_age)s * 1000000
 ORDER BY age(pg_class.relfrozenxid) DESC;
 """
