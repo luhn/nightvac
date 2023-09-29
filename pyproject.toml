@@ -7,6 +7,9 @@ authors = [
 description = "Preemptively vacuum your PostgreSQL database during off-hours"
 readme = "README.md"
 requires-python = ">=3.8"
+dependencies = [
+	"psycopg[binary]~=3.1",
+]
 classifiers = [
 	"Programming Language :: Python :: 3",
 	"License :: OSI Approved :: MIT License",
