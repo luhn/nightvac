@@ -21,14 +21,14 @@ Nightvac is written in Python.
 The recommended installation method is using [pipx](https://pypa.github.io/pipx/installation/).
 
 ```
-pipx install https://github.com/luhn/nightvac/archive/refs/tags/v0.1.1.tar.gz
+pipx install https://github.com/luhn/nightvac/archive/refs/tags/v0.2.0.tar.gz
 ```
 
 Alternatively, you can install pip.  It is recommended to install into a virtualenv.
 
 ```
 python -m venv .nightvac
-.nightvac/bin/pip install https://github.com/luhn/nightvac/archive/refs/tags/v0.1.1.tar.gz
+.nightvac/bin/pip install https://github.com/luhn/nightvac/archive/refs/tags/v0.2.0.tar.gz
 ```
 
 You can also download `nightvac.py` and run that directly—The only dependency is psycopg.
