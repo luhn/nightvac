@@ -45,11 +45,13 @@ By default, Postgres' autovacuum will trigger on any table that has either:
 
 - Max freeze age (`age(pg_class.relfrozenxid)`) greater than 200 million.
 - Dead tuples (`pg_stat_all_tables.n_dead_tups`) greater than 20% of total tuples (`pgclass.reltuples`) plus 50.
+- Inserted tuples (`pg_stat_all_tables.n_ins_since_vacuum`) greater than 20% of total tuples (`pgclass.reltuples`) plus 1000.  (Postgres 13+ only)
 
 By default, nightvac will preemptively vacuum any table that has either:
 
 - Max freeze age (`age(pg_class.relfrozenxid)`) greater than 150 million.
 - Dead tuples (`pg_stat_all_tables.n_dead_tups`) greater than 5% of total tuples (`pgclass.reltuples`) plus 50.
+- Inserted tuples (`pg_stat_all_tables.n_ins_since_vacuum`) greater than 10% of total tuples (`pgclass.reltuples`) plus 1000.  (Postgres 13+ only)
 
 Tables exceeding max freeze age threshold will be vacuumed first, in descending order of max freeze age.
 Next, tables exceeding dead tuple threshold, in descending order of dead tuple/total tuple ratio.
@@ -73,17 +75,27 @@ nightvac can be configured with the following CLI arguments:
   The minimum number of deleted or updated tuples to trigger a vacuum.
   Defaults to "50".
   Equivalent to Postgres' `autovacuum_vacuum_threshold`.
-  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-THRESHOLD
+  See https://www.postgresql.org/docs/current/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-THRESHOLD
 - `--scale-factor [float]`:
   The fraction of table size to add to the threshold when deciding to vacuum.
   Defaults to "0.05" (5%).
   Equivalent to Postgres' `autovacuum_vacuum_scale_factor`.
-  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-SCALE-FACTOR
+  See https://www.postgresql.org/docs/current/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-SCALE-FACTOR
+- `--insert-threshold [int]`:
+  The minimum number of inserted tuples to trigger a vacuum.
+  Defaults to "50".
+  Equivalent to Postgres' `autovacuum_vacuum_insert_threshold`.
+  See https://www.postgresql.org/docs/current/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-THRESHOLD
+- `--insert-scale-factor [float]`:
+  The fraction of table size to add to the insert threshold when deciding to vacuum.
+  Defaults to "0.1" (10%).
+  Equivalent to Postgres' `autovacuum_vacuum_insert_scale_factor`.
+  See https://www.postgresql.org/docs/current/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-SCALE-FACTOR
 -	`--freeze-max-age [int]`:
   The maximum age (in millions) of a table's `relfrozenxid` before triggering a vacuum.
   Defaults to "150" (150 million).
   Equivalent to Postgres' `autovacuum_freeze_max_age`.
-  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-FREEZE-MAX-AGE
+  See https://www.postgresql.org/docs/current/runtime-config-autovacuum.html#GUC-AUTOVACUUM-FREEZE-MAX-AGE
 
 ## Prior Art
 

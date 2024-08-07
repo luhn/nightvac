@@ -13,10 +13,12 @@ class Args:
     cost_limit: int = 200
     threshold: int = 50
     scale_factor: float = 0.05
+    insert_threshold: int = 1000
+    insert_scale_factor: float = 0.1
     freeze_max_age: int = 150
 
 
-VACUUM_QUERY = """
+DEAD_TUPLE_QUERY = """
 SELECT
     ns.nspname,
     pg_class.relname,
@@ -32,7 +34,23 @@ ORDER BY (stat.n_dead_tup - %(threshold)s) / nullif(pg_class.reltuples, 0) DESC 
 """
 
 
-FREEZE_QUERY = """
+INSERTED_TUPLE_QUERY = """
+SELECT
+    ns.nspname,
+    pg_class.relname,
+    (stat.n_ins_since_vacuum - %(threshold)s) / nullif(pg_class.reltuples, 0)
+FROM pg_class
+JOIN pg_namespace ns ON pg_class.relnamespace = ns.oid
+JOIN pg_stat_all_tables stat ON pg_class.oid = stat.relid
+WHERE
+    pg_class.relkind = ANY(ARRAY['r', 't'])
+    AND stat.n_ins_since_vacuum > pg_class.reltuples * %(scale_factor)s + %(threshold)s
+    AND (stat.last_autovacuum IS NULL OR NOW() - stat.last_autovacuum > '1 hour'::INTERVAL)
+ORDER BY (stat.n_dead_tup - %(threshold)s) / nullif(pg_class.reltuples, 0) DESC NULLS LAST;
+"""
+
+
+FREEZE_AGE_QUERY = """
 SELECT
     ns.nspname,
     pg_class.relname,
@@ -53,18 +71,21 @@ def run(args):
 
 def _run(db, args):
     start = unix_timestamp()
+    version = db.execute("SHOW server_version;").fetchone()[0]
+    logging.debut(f"Postgres version: {version}")
+    major_version = int(version.partition('.')[0])
     logging.debug(f"SELECT set_config('vacuum_cost_delay', {args.cost_delay}, false);")
     db.execute("SELECT set_config('vacuum_cost_delay', %s, false);", (str(args.cost_delay),))
     logging.debug(f"SELECT set_config('vacuum_cost_limit', {args.cost_limit}, false);")
     db.execute("SELECT set_config('vacuum_cost_limit', %s, false);", (str(args.cost_limit),))
 
-    by_freeze = db.execute(FREEZE_QUERY, {
+    by_freeze = db.execute(FREEZE_AGE_QUERY, {
         'freeze_max_age': args.freeze_max_age,
     }).fetchall()
     logging.debug('To vacuum due to frozen XID:')
     for namespace, name, maxage in by_freeze:
         logging.debug(f'    {namespace}.{name}: {maxage}')
-    by_dead = db.execute(VACUUM_QUERY, {
+    by_dead = db.execute(DEAD_TUPLE_QUERY, {
         'threshold': args.threshold,
         'scale_factor': args.scale_factor,
     }).fetchall()
@@ -72,7 +93,18 @@ def _run(db, args):
     for namespace, name, dead in by_dead:
         logging.debug(f'    {namespace}.{name}: {dead}')
 
-    for namespace, name, _ in by_freeze + by_dead:
+    if major_version >= 13:
+        by_isnerted = db.execute(INSERTED_TUPLE_QUERY, {
+            'threshold': args.insert_threshold,
+            'scale_factor': args.insert_scale_factor,
+        }).fetchall()
+        logging.debug('To vacuum due to inserted tuples:')
+        for namespace, name, inserted in by_inserted:
+            logging.debug(f'    {namespace}.{name}: {inserted}')
+    else:
+        by_insert = []
+
+    for namespace, name, _ in by_freeze + by_dead + by_inserted:
         logging.info(f'Vacuuming {namespace}.{name}')
         db.execute(f'VACUUM "{namespace}"."{name}"')
         if unix_timestamp() > start + args.timeout:
@@ -96,6 +128,8 @@ def cli():
     parser.add_argument('--cost-limit', type=int, default=200, help='Set the `vacuum_cost_limit` config.  Defaults to "200".  See https://www.postgresql.org/docs/current/runtime-config-resource.html#GUC-VACUUM-COST-LIMIT')
     parser.add_argument('--threshold', type=int, default=50, help='The minimum number of deleted or updated tuples to trigger a vacuum.  Defaults to "50".  Equivalent to Postgres\' `autovacuum_vacuum_threshold`.  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-THRESHOLD')
     parser.add_argument('--scale-factor', type=float, default=0.05, help='The fraction of table size to add to the threshold when deciding to vacuum.  Defaults to "0.05" (5%%).  Equivalent to  Postgres\' `autovacuum_vacuum_scale_factor`.  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-SCALE-FACTOR')
+    parser.add_argument('--insert-threshold', type=int, default=1000, help='The minimum number of inserted tuples to trigger a vacuum.  Defaults to "1000".  Equivalent to Postgres\' `autovacuum_vacuum_insert_threshold`.  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-THRESHOLD')
+    parser.add_argument('--insert-scale-factor', type=float, default=0.1, help='The fraction of table size to add to the threshold when deciding to vacuum.  Defaults to "0.1" (10%%).  Equivalent to  Postgres\' `autovacuum_vacuum_insert_scale_factor`.  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-SCALE-FACTOR')
     parser.add_argument('--freeze-max-age', type=int, default=150, help='The maximum age (in millions) of a table\'s `relfrozenxid` before triggering a vacuum.  Defaults to "150" (150 million).  Equivalent to Postgres\' `autovacuum_freeze_max_age`.  See https://www.postgresql.org/docs/12/runtime-config-autovacuum.html#GUC-AUTOVACUUM-FREEZE-MAX-AGE')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     args = parser.parse_args()
@@ -112,6 +146,8 @@ def cli():
         cost_limit=args.cost_limit,
         threshold=args.threshold,
         scale_factor=args.scale_factor,
+        insert_threshold=args.insert_threshold,
+        insert_scale_factor=args.insert_scale_factor,
         freeze_max_age=args.freeze_max_age,
     ))
 
