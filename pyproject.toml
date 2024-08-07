@@ -26,3 +26,15 @@ nightvac = "nightvac:cli"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+	"E",  # flake8
+	"F",  # pyflakes
+	"T20",  # flake8-print
+	"I",   # isort
+]
