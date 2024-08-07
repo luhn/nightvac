@@ -73,7 +73,7 @@ def run(args):
 def _run(db, args):
     start = unix_timestamp()
     version = db.execute("SHOW server_version;").fetchone()[0]
-    logging.debut(f"Postgres version: {version}")
+    logging.debug(f"Postgres version: {version}")
     major_version = int(version.partition(".")[0])
     logging.debug(
         "SELECT set_config('vacuum_cost_delay', %s, false);", args.cost_delay
